@@ -1,41 +1,42 @@
 import React, { useState } from 'react';
 import { Building2, User, AlertCircle } from 'lucide-react';
-
-const getUsersFromStorage = () => {
-  const stored = localStorage.getItem('meritium_all_users');
-  if (stored) return JSON.parse(stored);
-  
-  const defaultUsers = {
-    candidates: [
-      { id: 1, email: 'candidat@test.fr', password: 'password', role: 'candidate', name: 'Utilisateur Candidat' }
-    ],
-    companies: [
-      { id: 2, email: 'entreprise@test.fr', password: 'password', role: 'company', name: 'Entreprise Demo' }
-    ]
-  };
-  
-  localStorage.setItem('meritium_all_users', JSON.stringify(defaultUsers));
-  return defaultUsers;
-};
+import API from '../api/axios';
 
 const LoginPage = ({ type, onNavigate, onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const isCompany = type === 'company';
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
-    const users = getUsersFromStorage();
-    const userList = isCompany ? users.companies : users.candidates;
-    const user = userList.find(u => u.email === email && u.password === password);
+    setLoading(true);
 
-    if (user) {
+    try {
+      const response = await API.post('/auth/login', {
+        email,
+        password
+      });
+
+      const { token, user } = response.data;
+      
+      // Vérifier le rôle
+      if ((isCompany && user.role !== 'company') || (!isCompany && user.role !== 'candidate')) {
+        setError('Ce compte n\'est pas du bon type. Veuillez utiliser la connexion appropriée.');
+        return;
+      }
+
+      // Stocker le token et l'utilisateur
+      localStorage.setItem('meritium_token', token);
       onLogin(user);
       onNavigate('dashboard');
-    } else {
-      setError('Identifiants incorrects. Veuillez vérifier votre email et mot de passe.');
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error.response?.data?.error || 'Identifiants incorrects');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,6 +71,7 @@ const LoginPage = ({ type, onNavigate, onLogin }) => {
               onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
               placeholder={isCompany ? 'entreprise@example.com' : 'candidat@example.com'}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              disabled={loading}
             />
           </div>
 
@@ -82,6 +84,7 @@ const LoginPage = ({ type, onNavigate, onLogin }) => {
               onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
               placeholder="Votre mot de passe sécurisé"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              disabled={loading}
             />
           </div>
 
@@ -94,15 +97,17 @@ const LoginPage = ({ type, onNavigate, onLogin }) => {
 
           <button
             onClick={handleLogin}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg"
+            disabled={loading}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
-            Se connecter
+            {loading ? 'Connexion...' : 'Se connecter'}
           </button>
         </div>
 
         <button
           onClick={() => onNavigate('home')}
           className="w-full mt-6 text-gray-600 hover:text-gray-800 text-sm"
+          disabled={loading}
         >
           ← Retour à l'accueil
         </button>
