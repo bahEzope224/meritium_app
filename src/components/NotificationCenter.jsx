@@ -9,18 +9,16 @@ const NotificationCenter = ({ user }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      fetchUnreadCount();
-      fetchNotifications();
-      
-      // Polling pour les nouvelles notifications (toutes les 30 secondes)
-      const interval = setInterval(() => {
-        fetchUnreadCount();
-      }, 30000);
-
-      return () => clearInterval(interval);
-    }
+    const token = localStorage.getItem('meritium_token');
+    if (!user || !token) return;
+  
+    fetchUnreadCount();
+    fetchNotifications();
+  
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
   }, [user]);
+  
 
   const fetchUnreadCount = async () => {
     try {
